@@ -4,7 +4,11 @@ version = "0.1.2"
 description = "A Python-based scraper that collects relevant YouTube videos for technology topics"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = ["google-api-python-client>=2.185.0", "python-dotenv>=1.2.1"]
+dependencies = [
+    "anthropic>=0.71.0",
+    "google-api-python-client>=2.185.0",
+    "python-dotenv>=1.2.1",
+]
 
 [project.scripts]
 youtube-scraper = "main:main"
