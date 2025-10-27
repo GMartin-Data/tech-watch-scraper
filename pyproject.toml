@@ -1,0 +1,30 @@
+[project]
+name = "tech-watch-scraper"
+version = "0.1.0"
+description = "A Python-based scraper that collects relevant YouTube videos for technology topics"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = ["google-api-python-client>=2.185.0", "python-dotenv>=1.2.1"]
+
+[project.scripts]
+youtube-scraper = "main:main"
+
+[dependency-groups]
+dev = ["commitizen>=4.9.1", "pre-commit>=4.3.0", "ruff>=0.14.2"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+version = "0.1.0"
+tag_format = "v$version"
+version_files = ["pyproject.toml:version"]
+update_changelog_on_bump = true
