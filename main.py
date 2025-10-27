@@ -8,6 +8,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from src.config import Config
+from src.filter import VideoFilter
 from src.formatter import MarkdownFormatter
 from src.scraper import YouTubeScraper
 
@@ -49,6 +50,12 @@ Examples:
   # Change number of results per topic
   python main.py --max-results 20 "Docker tutorials"
 
+  # Enable Claude API filtering with threshold
+  python main.py --filter-threshold 7 "Python tutorials"
+
+  # Combine options: more results + filtering + debug logging
+  python main.py --max-results 20 --filter-threshold 8 --log-level DEBUG
+
   # Enable debug logging
   python main.py --log-level DEBUG "Kubernetes tutorials"
         """,
@@ -79,6 +86,15 @@ Examples:
         type=str,
         default="outputs",
         help="Directory for output files (default: outputs)",
+    )
+
+    parser.add_argument(
+        "--filter-threshold",
+        type=float,
+        default=None,
+        metavar="SCORE",
+        help="Enable Claude API filtering with minimum score threshold (0-10). "
+        "Requires ANTHROPIC_API_KEY. Example: --filter-threshold 7",
     )
 
     return parser.parse_args()
@@ -116,6 +132,14 @@ def main() -> None:
         config = Config()
         config.output_directory = args.output_dir
         config.max_results_per_topic = args.max_results
+
+        # Configure filtering
+        if args.filter_threshold is not None:
+            if not (0 <= args.filter_threshold <= 10):
+                raise ValueError("Filter threshold must be between 0 and 10")
+            config.filter_enabled = True
+            config.filter_threshold = args.filter_threshold
+
         config.validate()
 
         # Determine topics to search
@@ -127,14 +151,24 @@ def main() -> None:
         logger.info(f"📋 Topics to search: {len(topics)}")
         logger.info(f"📊 Max results per topic: {config.max_results_per_topic}")
         logger.info(f"📁 Output directory: {config.output_directory}")
+        if config.filter_enabled:
+            logger.info(
+                f"🔍 Filtering enabled: threshold = {config.filter_threshold}/10"
+            )
         logger.info("=" * 70)
 
         # Initialize scraper and formatter
         scraper = YouTubeScraper(config.youtube_api_key)
         formatter = MarkdownFormatter()
 
+        # Initialize video filter if enabled
+        video_filter = None
+        if config.filter_enabled:
+            video_filter = VideoFilter(config.anthropic_api_key)
+
         # Process each topic
         total_videos = 0
+        total_filtered = 0
         for topic in topics:
             logger.info(f"\n⏳ Processing topic: {topic}")
 
@@ -145,6 +179,28 @@ def main() -> None:
                 if not videos:
                     logger.warning(f"⚠️ No videos found for topic: {topic}")
                     continue
+
+                # Apply filtering if enabled
+                if video_filter:
+                    videos, filter_stats = video_filter.filter_videos(
+                        videos, topic, config.filter_threshold
+                    )
+                    total_filtered += filter_stats["filtered"]
+
+                    kept = filter_stats["kept"]
+                    total = filter_stats["total"]
+                    filtered = filter_stats["filtered"]
+                    avg = filter_stats["avg_score"]
+                    logger.info(
+                        f"📊 Filtering: {kept}/{total} kept "
+                        f"({filtered} filtered, avg: {avg:.1f})"
+                    )
+
+                    if not videos:
+                        logger.warning(
+                            f"⚠️ No videos passed filter threshold for topic: {topic}"
+                        )
+                        continue
 
                 # Generate output filename
                 filename = sanitize_filename(topic)
@@ -165,6 +221,8 @@ def main() -> None:
         logger.info("🎉 Scraping Complete!")
         logger.info(f"📊 Total topics processed: {len(topics)}")
         logger.info(f"📊 Total videos collected: {total_videos}")
+        if config.filter_enabled:
+            logger.info(f"🔍 Total videos filtered out: {total_filtered}")
         logger.info(f"💾 Reports saved to: {config.output_directory}/")
         logger.info("=" * 70)
 

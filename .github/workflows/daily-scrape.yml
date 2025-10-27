@@ -1,0 +1,94 @@
+name: Daily YouTube Scrape
+
+on:
+  # Run daily at 9 AM UTC
+  schedule:
+    - cron: '0 9 * * *'
+
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      filter_threshold:
+        description: 'Claude API filter threshold (0-10)'
+        required: false
+        default: '7'
+        type: string
+      max_results:
+        description: 'Max results per topic'
+        required: false
+        default: '10'
+        type: string
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    name: Scrape YouTube Videos
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run scraper with filtering
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          # Run with inputs or defaults
+          FILTER_THRESHOLD="${{ github.event.inputs.filter_threshold || '7' }}"
+          MAX_RESULTS="${{ github.event.inputs.max_results || '10' }}"
+
+          echo "Running scraper with:"
+          echo "  - Filter threshold: $FILTER_THRESHOLD"
+          echo "  - Max results per topic: $MAX_RESULTS"
+
+          uv run python main.py \
+            --filter-threshold "$FILTER_THRESHOLD" \
+            --max-results "$MAX_RESULTS" \
+            --log-level INFO
+
+      - name: Upload outputs as artifacts
+        if: always() # Run even if previous steps fail
+        uses: actions/upload-artifact@v4
+        with:
+          name: youtube-scrape-outputs-${{ github.run_number }}
+          path: outputs/
+          retention-days: 90
+          if-no-files-found: warn
+
+      - name: Display summary
+        if: always() # Run even if previous steps fail
+        run: |
+          echo "## Scraping Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Check out if files were generated
+          if [ -d "outputs" ] && [ "$(ls -A outputs)" ]; then
+            echo "### Generated Reports" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| File | Size | Lines |" >> $GITHUB_STEP_SUMMARY
+            echo "|------|------|-------|" >> $GITHUB_STEP_SUMMARY
+
+            for file in outputs/*.md; do
+              if [ -f "$file" ]; then
+                filename=$(basename "$file")
+                size=$(stat -c%s "$file" | numfmt --to=iec)
+                lines=$(wc -l < "$file")
+                echo "| $filename | $size | $lines |" >> $GITHUB_STEP_SUMMARY
+              fi
+            done
+          else
+            echo "No output files generated" >> $GITHUB_STEP_SUMMARY
+          fi
