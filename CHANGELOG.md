@@ -1,3 +1,9 @@
+## v0.2.0 (2025-10-27)
+
+### Feat
+
+- implement Phase 2 - Claude API filtering and GitHub Actions scheduling (#3)
+
 ## v0.1.2 (2025-10-27)
 
 ### Fix
