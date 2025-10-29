@@ -1,3 +1,9 @@
+## v0.2.1 (2025-10-29)
+
+### Fix
+
+- update Claude model from deprecated version to claude-3-7-sonnet-20250219 (#4)
+
 ## v0.2.0 (2025-10-27)
 
 ### Feat
