@@ -13,10 +13,10 @@ class VideoFilter:
 
     Attributes:
         client: Anthropic API client instance.
-        model: Claude model to use for scoring (default: claude-3-5-sonnet-20241022).
+        model: Claude model to use for scoring (default: claude-3-7-sonnet-20250219).
     """
 
-    def __init__(self, api_key: str, model: str = "claude-3-5-sonnet-20241022") -> None:
+    def __init__(self, api_key: str, model: str = "claude-3-7-sonnet-20250219") -> None:
         """Initialize video filter with Anthropic API key.
 
         Args:
